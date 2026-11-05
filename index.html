@@ -1,9 +1,8 @@
-기존 내용을 다 지우고 그대로 복사해서 붙여넣으실 수 있는 완성된 전체 HTML 코드입니다.
-주차별 예산(장보기 10만원, 생활비 15만원)을 초과하면 우측 요약 글씨가 빨간색으로 바뀌며 초과 금액이 표시되고, 모눈종이 바로 아래에 빨간색 초과 경고 칸(+1만 초과, +2만 초과...)이 자동으로 생성됩니다.
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>모눈종이 바인더 가계부 위젯</title>
   <style>
     :root {
@@ -36,11 +35,60 @@
     .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
     .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
 
-    /* 입력 폼 & 내역 테이블 */
-    .input-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; background: #f5f4ef; padding: 12px; border-radius: 8px; }
-    .input-form input, .input-form select, .input-form button { padding: 6px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 5px; }
-    .input-form button { background: #333; color: #fff; border: none; cursor: pointer; font-weight: 600; }
+    /* 입력 폼 (모바일 터치 줌 방지 font-size 16px) */
+    .input-form { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 10px; 
+      margin-bottom: 14px; 
+      background: #f5f4ef; 
+      padding: 14px; 
+      border-radius: 8px; 
+    }
+    .input-form input, .input-form select, .input-form button { 
+      width: 100%; 
+      height: 44px; 
+      padding: 8px 12px; 
+      font-size: 16px; 
+      border: 1px solid #ccc; 
+      border-radius: 6px; 
+    }
+    .input-form button { 
+      background: #333; 
+      color: #fff; 
+      border: none; 
+      cursor: pointer; 
+      font-weight: 600; 
+      margin-top: 4px;
+    }
     .input-form button:hover { background: #555; }
+
+    /* 데이터 동기화 백업/복원 영역 */
+    .sync-box {
+      background: #f0f4f8;
+      border: 1px solid #d0dbe5;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sync-btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    .sync-btn-group button {
+      flex: 1;
+      height: 38px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-export { background: #1976d2; color: #fff; }
+    .btn-import { background: #455a64; color: #fff; }
 
     table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
     th, td { padding: 8px 10px; border-bottom: 1px solid #eee; }
@@ -120,9 +168,19 @@
     </div>
   </div>
 
-  <!-- 지출 내역 입력 폼 및 테이블 -->
+  <!-- 지출 내역 입력 폼 및 동기화 버튼 -->
   <div class="card">
     <h3>지출 내역 기록</h3>
+
+    <!-- 기기간 데이터 동기화 백업 영역 -->
+    <div class="sync-box">
+      <div style="font-size:12px; color:#475569; font-weight:600;">📱 기기 간 데이터 동기화 (아이폰 ↔ 갤럭시)</div>
+      <div class="sync-btn-group">
+        <button type="button" class="btn-export" onclick="exportData()">내역 복사하기 (내보내기)</button>
+        <button type="button" class="btn-import" onclick="importData()">내역 붙여넣기 (가져오기)</button>
+      </div>
+    </div>
+
     <div class="input-form">
       <input type="date" id="in-date">
       <select id="in-cat">
@@ -134,9 +192,10 @@
         <option value="교통비">교통비</option>
         <option value="기타">기타</option>
       </select>
-      <input type="number" id="in-amount" placeholder="금액 (예: 3000)" step="1000" style="width:130px;">
-      <input type="text" id="in-desc" placeholder="내용 (예: 장보기, 카페 등)" style="flex:1; min-width:140px;">
-      <button onclick="addExpense()">추가하기</button>
+      <input type="number" id="in-amount" placeholder="금액 (예: 3000)" step="1000">
+      <input type="text" id="in-desc" placeholder="내용 (예: 장보기, 카페 등)">
+      <button type="button" id="btn-submit" onclick="addExpense()">추가하기</button>
+      <button type="button" id="btn-cancel" onclick="cancelEdit()" style="display:none; background:#888;">수정 취소</button>
     </div>
 
     <table>
@@ -147,7 +206,7 @@
           <th>카테고리</th>
           <th>금액</th>
           <th>내용</th>
-          <th>삭제</th>
+          <th>관리</th>
         </tr>
       </thead>
       <tbody id="expense-tbody"></tbody>
@@ -197,11 +256,51 @@
     }
 
     let expenses = JSON.parse(localStorage.getItem('my_notion_expenses_final') || '[]');
+    let editingId = null;
 
     function saveAndRender() {
       localStorage.setItem('my_notion_expenses_final', JSON.stringify(expenses));
       renderTable();
       renderAllGrids();
+    }
+
+    /* 데이터 내보내기 (클립보드 복사) */
+    function exportData() {
+      if (expenses.length === 0) {
+        alert('내보낼 지출 내역이 없습니다.');
+        return;
+      }
+      const dataStr = JSON.stringify(expenses);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(dataStr).then(() => {
+          alert('기록 데이터가 복사되었습니다!\n다른 기기(카카오톡 등)로 보내서 붙여넣기 하세요.');
+        }).catch(() => {
+          prompt('아래 코드를 전체 복사하여 다른 기기로 보내세요:', dataStr);
+        });
+      } else {
+        prompt('아래 코드를 전체 복사하여 다른 기기로 보내세요:', dataStr);
+      }
+    }
+
+    /* 데이터 가져오기 (붙여넣기 반영) */
+    function importData() {
+      const inputStr = prompt('복사해 온 데이터를 여기에 붙여넣어 주세요:');
+      if (!inputStr) return;
+
+      try {
+        const parsed = JSON.parse(inputStr.trim());
+        if (Array.isArray(parsed)) {
+          if (confirm(`총 ${parsed.length}개의 내역을 불러옵니다. 기존 내역을 덮어쓸까요?`)) {
+            expenses = parsed;
+            saveAndRender();
+            alert('동기화가 완료되었습니다!');
+          }
+        } else {
+          alert('올바른 데이터 형식이 아닙니다.');
+        }
+      } catch (err) {
+        alert('데이터를 파싱할 수 없습니다. 복사된 내용을 확인해 주세요.');
+      }
     }
 
     function addExpense() {
@@ -216,14 +315,48 @@
       }
 
       const week = getWeekOfMonth(date);
-      expenses.push({ id: Date.now(), date, week, cat, amt, desc });
-      document.getElementById('in-amount').value = '';
-      document.getElementById('in-desc').value = '';
+
+      if (editingId) {
+        const idx = expenses.findIndex(e => e.id === editingId);
+        if (idx !== -1) {
+          expenses[idx] = { id: editingId, date, week, cat, amt, desc };
+        }
+        cancelEdit();
+      } else {
+        expenses.push({ id: Date.now(), date, week, cat, amt, desc });
+        document.getElementById('in-amount').value = '';
+        document.getElementById('in-desc').value = '';
+      }
 
       saveAndRender();
     }
 
+    function editExpense(id) {
+      const target = expenses.find(e => e.id === id);
+      if (!target) return;
+
+      editingId = id;
+      document.getElementById('in-date').value = target.date;
+      document.getElementById('in-cat').value = target.cat;
+      document.getElementById('in-amount').value = target.amt;
+      document.getElementById('in-desc').value = target.desc;
+
+      document.getElementById('btn-submit').innerText = '수정 완료하기';
+      document.getElementById('btn-cancel').style.display = 'block';
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      document.getElementById('in-amount').value = '';
+      document.getElementById('in-desc').value = '';
+      document.getElementById('btn-submit').innerText = '추가하기';
+      document.getElementById('btn-cancel').style.display = 'none';
+    }
+
     function deleteExpense(id) {
+      if (editingId === id) cancelEdit();
       expenses = expenses.filter(e => e.id !== id);
       saveAndRender();
     }
@@ -244,7 +377,10 @@
           <td><span style="color:${CAT_COLORS[e.cat]}; font-weight:bold;">●</span> ${e.cat}</td>
           <td>${e.amt.toLocaleString()}원</td>
           <td>${e.desc}</td>
-          <td><button class="del-btn" onclick="deleteExpense(${e.id})">✕</button></td>
+          <td>
+            <button type="button" style="background:none; border:none; color:#1976d2; cursor:pointer; font-size:11px; margin-right:6px;" onclick="editExpense(${e.id})">수정</button>
+            <button type="button" class="del-btn" onclick="deleteExpense(${e.id})">✕</button>
+          </td>
         `;
         tbody.appendChild(tr);
       });
@@ -267,7 +403,7 @@
     }
 
     function initAllContainers() {
-      // 1. 주간 장보기 (1주~5주, 각 10개 큰 칸 = 10만원 = 2줄)
+      // 1. 주간 장보기 (10만원 = 큰 칸 10개)
       const groceryParent = document.getElementById('grocery-weeks-container');
       groceryParent.innerHTML = '';
       for (let w = 1; w <= 5; w++) {
@@ -285,7 +421,7 @@
         buildBoxes(`grid-grocery-week-${w}`, 10, `gw${w}`);
       }
 
-      // 2. 일반 주간 생활비 (1주~5주, 각 15개 큰 칸 = 15만원 = 3줄)
+      // 2. 일반 주간 생활비 (15만원 = 큰 칸 15개)
       const generalParent = document.getElementById('general-weeks-container');
       generalParent.innerHTML = '';
       for (let w = 1; w <= 5; w++) {
@@ -303,12 +439,11 @@
         buildBoxes(`grid-general-week-${w}`, 15, `genw${w}`);
       }
 
-      // 3. 비상금 (30개 큰 칸 = 30만원 = 6줄)
+      // 3. 비상금 (30만원 = 큰 칸 30개)
       buildBoxes('grid-emergency', 30, 'emer');
     }
 
     function renderAllGrids() {
-      // 셀 초기화
       for (let w = 1; w <= 5; w++) {
         for (let idx = 0; idx < 100; idx++) {
           const cell = document.getElementById(`gw${w}-cell-${idx}`);
@@ -330,7 +465,6 @@
       const oEmer = document.getElementById('over-emergency');
       if (oEmer) oEmer.innerHTML = '';
 
-      // 지출 데이터 순회 색칠
       const groceryTotals = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       const generalTotals = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       let emerTotal = 0;
@@ -375,9 +509,8 @@
         }
       });
 
-      // 주차별 요약 텍스트 및 초과 빨간색 칸 생성
+      // 요약 글씨 및 초과 뱃지
       for (let w = 1; w <= 5; w++) {
-        // 1. 장보기 초과 처리 (예산: 100,000원)
         const gTotal = groceryTotals[w];
         const gOver = Math.max(0, gTotal - 100000);
         const gSumEl = document.getElementById(`grocery-week-${w}-summary`);
@@ -399,7 +532,6 @@
           }
         }
 
-        // 2. 생활비 초과 처리 (예산: 150,000원)
         const genTotal = generalTotals[w];
         const genOver = Math.max(0, genTotal - 150000);
         const genSumEl = document.getElementById(`general-week-${w}-summary`);
@@ -422,7 +554,6 @@
         }
       }
 
-      // 3. 비상금 초과 처리 (예산: 300,000원)
       const eOver = Math.max(0, emerTotal - 300000);
       const eSumEl = document.getElementById('emergency-summary');
       if (eSumEl) {
@@ -453,4 +584,3 @@
   </script>
 </body>
 </html>
-
