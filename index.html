@@ -1,0 +1,456 @@
+기존 내용을 다 지우고 그대로 복사해서 붙여넣으실 수 있는 완성된 전체 HTML 코드입니다.
+주차별 예산(장보기 10만원, 생활비 15만원)을 초과하면 우측 요약 글씨가 빨간색으로 바뀌며 초과 금액이 표시되고, 모눈종이 바로 아래에 빨간색 초과 경고 칸(+1만 초과, +2만 초과...)이 자동으로 생성됩니다.
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>모눈종이 바인더 가계부 위젯</title>
+  <style>
+    :root {
+      --bg: #faf9f6;
+      --card: #ffffff;
+      --border: #e0ded9;
+      --grid-border: #c8c5bc;
+      --sub-border: #ece9e2;
+      --text: #333333;
+      --text-sub: #777777;
+
+      /* 카테고리별 지정 색상 */
+      --c-grocery: #1976d2;    /* 식재료(장보기): 파란색 */
+      --c-cloth: #f44336;      /* 의류: 빨간색 */
+      --c-eat-out: #ff9800;    /* 외식비: 주황색 */
+      --c-emergency: #e91e63;  /* 비상금: 핫핑크/로즈 */
+      --c-daiso: #9c27b0;      /* 다이소(세빈): 보라색 */
+      --c-traffic: #00bcd4;    /* 교통비: 청록색 */
+      --c-etc: #795548;        /* 기타: 갈색 */
+    }
+
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; margin: 0; display: flex; flex-direction: column; gap: 20px; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+    h2, h3 { margin: 0 0 12px 0; font-size: 16px; font-weight: 700; }
+
+    /* 범례 스타일 */
+    .legend-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+    /* 입력 폼 & 내역 테이블 */
+    .input-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; background: #f5f4ef; padding: 12px; border-radius: 8px; }
+    .input-form input, .input-form select, .input-form button { padding: 6px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 5px; }
+    .input-form button { background: #333; color: #fff; border: none; cursor: pointer; font-weight: 600; }
+    .input-form button:hover { background: #555; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th { background: #faf9f6; color: var(--text-sub); }
+    .del-btn { background: none; border: none; color: #d32f2f; cursor: pointer; font-size: 11px; }
+
+    /* 모눈종이 그리드 영역 */
+    .tracker-section { margin-bottom: 18px; }
+    .tracker-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .grid-container {
+      background: #fbfaf7;
+      border: 1px solid var(--grid-border);
+      border-radius: 6px;
+      padding: 8px;
+      display: inline-grid;
+      grid-template-columns: repeat(5, auto); /* 한 줄에 5만원 (큰 칸 5개) */
+      gap: 6px;
+      width: fit-content;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+
+    /* 큰 네모 (1만원) */
+    .major-box {
+      width: 58px;
+      height: 44px;
+      background: #ffffff;
+      border: 1px solid var(--grid-border);
+      border-radius: 4px;
+      padding: 2px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 2px;
+    }
+
+    /* 작은 네모 (1천원) */
+    .sub-box {
+      background: #fff;
+      border: 0.5px dashed var(--sub-border);
+      border-radius: 1px;
+    }
+
+    /* 초과 영역 박스 */
+    .over-container {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .over-badge {
+      padding: 4px 10px;
+      background: #ffebee;
+      border: 1px solid #ef5350;
+      color: #d32f2f;
+      font-size: 11px;
+      font-weight: bold;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 카테고리 색상 범례 -->
+  <div class="card">
+    <h3>카테고리 색상</h3>
+    <div class="legend-bar">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-grocery)"></div>식재료/장보기 (파랑 - 주간 10만)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-emergency)"></div>비상금 (핑크 - 별도 30만)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-eat-out)"></div>외식비 (주황)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-cloth)"></div>의류 (빨강)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-daiso)"></div>다이소(세빈) (보라)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-traffic)"></div>교통비 (청록)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-etc)"></div>기타 (갈색)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef5350; border:1px solid #d32f2f;"></div>예산 초과금 (빨간색 칸)</div>
+    </div>
+  </div>
+
+  <!-- 지출 내역 입력 폼 및 테이블 -->
+  <div class="card">
+    <h3>지출 내역 기록</h3>
+    <div class="input-form">
+      <input type="date" id="in-date">
+      <select id="in-cat">
+        <option value="식재료">식재료 (장보기 주 10만)</option>
+        <option value="외식비">외식비</option>
+        <option value="의류">의류</option>
+        <option value="비상금">비상금 (별도 30만)</option>
+        <option value="다이소(세빈)">다이소(세빈)</option>
+        <option value="교통비">교통비</option>
+        <option value="기타">기타</option>
+      </select>
+      <input type="number" id="in-amount" placeholder="금액 (예: 3000)" step="1000" style="width:130px;">
+      <input type="text" id="in-desc" placeholder="내용 (예: 장보기, 카페 등)" style="flex:1; min-width:140px;">
+      <button onclick="addExpense()">추가하기</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>날짜</th>
+          <th>구분</th>
+          <th>카테고리</th>
+          <th>금액</th>
+          <th>내용</th>
+          <th>삭제</th>
+        </tr>
+      </thead>
+      <tbody id="expense-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- 1. 주간 장보기 (식재료 전용 10만원 = 5칸 × 2줄) -->
+  <div class="card">
+    <h3>주간 장보기 구입 전용 모눈종이 (각 100,000원 = 5칸 × 2줄)</h3>
+    <div id="grocery-weeks-container"></div>
+  </div>
+
+  <!-- 2. 주간 생활비 소비 현황 (주차별 각 15만원 = 5칸 × 3줄) -->
+  <div class="card">
+    <h3>주간 생활비 모눈종이 (각 150,000원 = 5칸 × 3줄)</h3>
+    <div id="general-weeks-container"></div>
+  </div>
+
+  <!-- 3. 별도 예산 모눈종이 (비상금 30만원 = 5칸 × 6줄) -->
+  <div class="card">
+    <h3>별도 예산 모눈종이</h3>
+    <div class="tracker-section" style="margin-bottom:0;">
+      <div class="tracker-title">
+        <span>[ 비상금 전용 ] (5칸 × 6줄)</span>
+        <span id="emergency-summary" style="color:var(--text-sub); font-weight:normal;">0원 / 300,000원</span>
+      </div>
+      <div class="grid-container" id="grid-emergency"></div>
+      <div id="over-emergency" class="over-container"></div>
+    </div>
+  </div>
+
+  <script>
+    const CAT_COLORS = {
+      '식재료': '#1976d2',
+      '의류': '#f44336',
+      '외식비': '#ff9800',
+      '비상금': '#e91e63',
+      '다이소(세빈)': '#9c27b0',
+      '교통비': '#00bcd4',
+      '기타': '#795548'
+    };
+
+    function getWeekOfMonth(dateStr) {
+      const d = new Date(dateStr);
+      const day = d.getDate();
+      return Math.min(5, Math.ceil(day / 7));
+    }
+
+    let expenses = JSON.parse(localStorage.getItem('my_notion_expenses_final') || '[]');
+
+    function saveAndRender() {
+      localStorage.setItem('my_notion_expenses_final', JSON.stringify(expenses));
+      renderTable();
+      renderAllGrids();
+    }
+
+    function addExpense() {
+      const date = document.getElementById('in-date').value;
+      const cat = document.getElementById('in-cat').value;
+      const amt = parseInt(document.getElementById('in-amount').value) || 0;
+      const desc = document.getElementById('in-desc').value;
+
+      if (!date || amt <= 0) {
+        alert('날짜와 1,000원 이상의 금액을 입력해 주세요.');
+        return;
+      }
+
+      const week = getWeekOfMonth(date);
+      expenses.push({ id: Date.now(), date, week, cat, amt, desc });
+      document.getElementById('in-amount').value = '';
+      document.getElementById('in-desc').value = '';
+
+      saveAndRender();
+    }
+
+    function deleteExpense(id) {
+      expenses = expenses.filter(e => e.id !== id);
+      saveAndRender();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('expense-tbody');
+      tbody.innerHTML = '';
+      expenses.slice().reverse().forEach(e => {
+        let typeBadge = '';
+        if (e.cat === '식재료') typeBadge = `<b style="color:#1976d2;">${e.week}주차 장보기</b>`;
+        else if (e.cat === '비상금') typeBadge = '<span style="color:#e91e63; font-weight:bold;">비상금 전용</span>';
+        else typeBadge = `<b>${e.week}주차 생활비</b>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${e.date}</td>
+          <td>${typeBadge}</td>
+          <td><span style="color:${CAT_COLORS[e.cat]}; font-weight:bold;">●</span> ${e.cat}</td>
+          <td>${e.amt.toLocaleString()}원</td>
+          <td>${e.desc}</td>
+          <td><button class="del-btn" onclick="deleteExpense(${e.id})">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function buildBoxes(containerId, countMajor, prefix) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      for (let i = 0; i < countMajor; i++) {
+        const major = document.createElement('div');
+        major.className = 'major-box';
+        for (let j = 0; j < 10; j++) {
+          const sub = document.createElement('div');
+          sub.className = 'sub-box';
+          sub.id = `${prefix}-cell-${i * 10 + j}`;
+          major.appendChild(sub);
+        }
+        container.appendChild(major);
+      }
+    }
+
+    function initAllContainers() {
+      // 1. 주간 장보기 (1주~5주, 각 10개 큰 칸 = 10만원 = 2줄)
+      const groceryParent = document.getElementById('grocery-weeks-container');
+      groceryParent.innerHTML = '';
+      for (let w = 1; w <= 5; w++) {
+        const sec = document.createElement('div');
+        sec.className = 'tracker-section';
+        sec.innerHTML = `
+          <div class="tracker-title">
+            <span>[ ${w}주차 장보기(식재료 전용) ]</span>
+            <span id="grocery-week-${w}-summary" style="color:var(--text-sub); font-weight:normal;">0원 / 100,000원</span>
+          </div>
+          <div class="grid-container" id="grid-grocery-week-${w}"></div>
+          <div id="over-grocery-week-${w}" class="over-container"></div>
+        `;
+        groceryParent.appendChild(sec);
+        buildBoxes(`grid-grocery-week-${w}`, 10, `gw${w}`);
+      }
+
+      // 2. 일반 주간 생활비 (1주~5주, 각 15개 큰 칸 = 15만원 = 3줄)
+      const generalParent = document.getElementById('general-weeks-container');
+      generalParent.innerHTML = '';
+      for (let w = 1; w <= 5; w++) {
+        const sec = document.createElement('div');
+        sec.className = 'tracker-section';
+        sec.innerHTML = `
+          <div class="tracker-title">
+            <span>[ ${w}주차 생활비 ]</span>
+            <span id="general-week-${w}-summary" style="color:var(--text-sub); font-weight:normal;">0원 / 150,000원</span>
+          </div>
+          <div class="grid-container" id="grid-general-week-${w}"></div>
+          <div id="over-general-week-${w}" class="over-container"></div>
+        `;
+        generalParent.appendChild(sec);
+        buildBoxes(`grid-general-week-${w}`, 15, `genw${w}`);
+      }
+
+      // 3. 비상금 (30개 큰 칸 = 30만원 = 6줄)
+      buildBoxes('grid-emergency', 30, 'emer');
+    }
+
+    function renderAllGrids() {
+      // 셀 초기화
+      for (let w = 1; w <= 5; w++) {
+        for (let idx = 0; idx < 100; idx++) {
+          const cell = document.getElementById(`gw${w}-cell-${idx}`);
+          if (cell) { cell.style.background = '#fff'; cell.style.borderColor = 'var(--sub-border)'; }
+        }
+        for (let idx = 0; idx < 150; idx++) {
+          const cell = document.getElementById(`genw${w}-cell-${idx}`);
+          if (cell) { cell.style.background = '#fff'; cell.style.borderColor = 'var(--sub-border)'; }
+        }
+        const oGw = document.getElementById(`over-grocery-week-${w}`);
+        if (oGw) oGw.innerHTML = '';
+        const oGenw = document.getElementById(`over-general-week-${w}`);
+        if (oGenw) oGenw.innerHTML = '';
+      }
+      for (let idx = 0; idx < 300; idx++) {
+        const cell = document.getElementById(`emer-cell-${idx}`);
+        if (cell) { cell.style.background = '#fff'; cell.style.borderColor = 'var(--sub-border)'; }
+      }
+      const oEmer = document.getElementById('over-emergency');
+      if (oEmer) oEmer.innerHTML = '';
+
+      // 지출 데이터 순회 색칠
+      const groceryTotals = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      const generalTotals = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      let emerTotal = 0;
+
+      expenses.forEach(e => {
+        const color = CAT_COLORS[e.cat] || '#999';
+        const boxesCount = Math.floor(e.amt / 1000);
+        const w = e.week;
+
+        if (e.cat === '식재료') {
+          const startIdx = Math.floor(groceryTotals[w] / 1000);
+          for (let i = 0; i < boxesCount; i++) {
+            const targetIdx = startIdx + i;
+            if (targetIdx < 100) {
+              const cell = document.getElementById(`gw${w}-cell-${targetIdx}`);
+              if (cell) { cell.style.background = color; cell.style.borderColor = color; }
+            }
+          }
+          groceryTotals[w] += e.amt;
+
+        } else if (e.cat === '비상금') {
+          const startIdx = Math.floor(emerTotal / 1000);
+          for (let i = 0; i < boxesCount; i++) {
+            const targetIdx = startIdx + i;
+            if (targetIdx < 300) {
+              const cell = document.getElementById(`emer-cell-${targetIdx}`);
+              if (cell) { cell.style.background = color; cell.style.borderColor = color; }
+            }
+          }
+          emerTotal += e.amt;
+
+        } else {
+          const startIdx = Math.floor(generalTotals[w] / 1000);
+          for (let i = 0; i < boxesCount; i++) {
+            const targetIdx = startIdx + i;
+            if (targetIdx < 150) {
+              const cell = document.getElementById(`genw${w}-cell-${targetIdx}`);
+              if (cell) { cell.style.background = color; cell.style.borderColor = color; }
+            }
+          }
+          generalTotals[w] += e.amt;
+        }
+      });
+
+      // 주차별 요약 텍스트 및 초과 빨간색 칸 생성
+      for (let w = 1; w <= 5; w++) {
+        // 1. 장보기 초과 처리 (예산: 100,000원)
+        const gTotal = groceryTotals[w];
+        const gOver = Math.max(0, gTotal - 100000);
+        const gSumEl = document.getElementById(`grocery-week-${w}-summary`);
+        if (gSumEl) {
+          if (gOver > 0) {
+            gSumEl.innerHTML = `<span style="color:#d32f2f; font-weight:bold;">${gTotal.toLocaleString()}원 / 100,000원 (초과: +${gOver.toLocaleString()}원)</span>`;
+          } else {
+            gSumEl.innerText = `${gTotal.toLocaleString()}원 / 100,000원`;
+          }
+        }
+        if (gOver > 0) {
+          const oGw = document.getElementById(`over-grocery-week-${w}`);
+          const overBoxes = Math.ceil(gOver / 10000);
+          for (let i = 0; i < overBoxes; i++) {
+            const b = document.createElement('div');
+            b.className = 'over-badge';
+            b.innerText = `+${i + 1}만원 초과`;
+            oGw.appendChild(b);
+          }
+        }
+
+        // 2. 생활비 초과 처리 (예산: 150,000원)
+        const genTotal = generalTotals[w];
+        const genOver = Math.max(0, genTotal - 150000);
+        const genSumEl = document.getElementById(`general-week-${w}-summary`);
+        if (genSumEl) {
+          if (genOver > 0) {
+            genSumEl.innerHTML = `<span style="color:#d32f2f; font-weight:bold;">${genTotal.toLocaleString()}원 / 150,000원 (초과: +${genOver.toLocaleString()}원)</span>`;
+          } else {
+            genSumEl.innerText = `${genTotal.toLocaleString()}원 / 150,000원`;
+          }
+        }
+        if (genOver > 0) {
+          const oGenw = document.getElementById(`over-general-week-${w}`);
+          const overBoxes = Math.ceil(genOver / 10000);
+          for (let i = 0; i < overBoxes; i++) {
+            const b = document.createElement('div');
+            b.className = 'over-badge';
+            b.innerText = `+${i + 1}만원 초과`;
+            oGenw.appendChild(b);
+          }
+        }
+      }
+
+      // 3. 비상금 초과 처리 (예산: 300,000원)
+      const eOver = Math.max(0, emerTotal - 300000);
+      const eSumEl = document.getElementById('emergency-summary');
+      if (eSumEl) {
+        if (eOver > 0) {
+          eSumEl.innerHTML = `<span style="color:#d32f2f; font-weight:bold;">${emerTotal.toLocaleString()}원 / 300,000원 (초과: +${eOver.toLocaleString()}원)</span>`;
+        } else {
+          eSumEl.innerText = `${emerTotal.toLocaleString()}원 / 300,000원`;
+        }
+      }
+      if (eOver > 0) {
+        const oEmer = document.getElementById('over-emergency');
+        const overBoxes = Math.ceil(eOver / 10000);
+        for (let i = 0; i < overBoxes; i++) {
+          const b = document.createElement('div');
+          b.className = 'over-badge';
+          b.innerText = `+${i + 1}만원 초과`;
+          oEmer.appendChild(b);
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('in-date').value = new Date().toISOString().split('T')[0];
+      initAllContainers();
+      renderTable();
+      renderAllGrids();
+    });
+  </script>
+</body>
+</html>
+
