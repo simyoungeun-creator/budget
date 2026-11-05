@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>모눈종이 바인더 가계부 위젯</title>
+  <title>모눈종이 바인더 가계부</title>
   <style>
     :root {
       --bg: #faf9f6;
@@ -16,11 +16,13 @@
 
       /* 카테고리별 지정 색상 */
       --c-grocery: #1976d2;    /* 식재료(장보기): 파란색 */
-      --c-cloth: #f44336;      /* 의류: 빨간색 */
       --c-eat-out: #ff9800;    /* 외식비: 주황색 */
-      --c-emergency: #e91e63;  /* 비상금: 핫핑크/로즈 */
-      --c-daiso: #9c27b0;      /* 다이소(세빈): 보라색 */
+      --c-daily: #4caf50;      /* 생필품: 초록색 */
+      --c-cosmetic: #ab47bc;   /* 화장품: 연보라/라일락 */
+      --c-cloth: #f44336;      /* 의류: 빨간색 */
+      --c-daiso: #5c6bc0;      /* 다이소(세빈): 인디고/남보라 */
       --c-traffic: #00bcd4;    /* 교통비: 청록색 */
+      --c-emergency: #e91e63;  /* 비상금: 핫핑크/로즈 */
       --c-etc: #795548;        /* 기타: 갈색 */
     }
 
@@ -30,12 +32,40 @@
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
     h2, h3 { margin: 0 0 12px 0; font-size: 16px; font-weight: 700; }
 
+    /* 상단 자동 동기화 상태바 */
+    .cloud-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #eef6ff;
+      border: 1px solid #bdd7ff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .cloud-status { font-weight: 700; color: #1976d2; display: flex; align-items: center; gap: 4px; }
+    .cloud-btns { display: flex; gap: 6px; }
+    .cloud-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid #1976d2;
+      background: #fff;
+      color: #1976d2;
+      cursor: pointer;
+    }
+    .cloud-btn.primary { background: #1976d2; color: #fff; }
+
     /* 범례 스타일 */
     .legend-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
     .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
     .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
 
-    /* 입력 폼 (모바일 터치 줌 방지 font-size 16px) */
+    /* 모바일 친화형 입력 폼 (확대 방지 16px) */
     .input-form { 
       display: flex; 
       flex-direction: column; 
@@ -61,41 +91,13 @@
       font-weight: 600; 
       margin-top: 4px;
     }
-    .input-form button:hover { background: #555; }
-
-    /* 데이터 동기화 백업/복원 영역 */
-    .sync-box {
-      background: #f0f4f8;
-      border: 1px solid #d0dbe5;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .sync-btn-group {
-      display: flex;
-      gap: 8px;
-    }
-    .sync-btn-group button {
-      flex: 1;
-      height: 38px;
-      font-size: 13px;
-      font-weight: 600;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-    }
-    .btn-export { background: #1976d2; color: #fff; }
-    .btn-import { background: #455a64; color: #fff; }
 
     table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th, td { padding: 8px 6px; border-bottom: 1px solid #eee; }
     th { background: #faf9f6; color: var(--text-sub); }
-    .del-btn { background: none; border: none; color: #d32f2f; cursor: pointer; font-size: 11px; }
+    .del-btn { background: none; border: none; color: #d32f2f; cursor: pointer; font-size: 12px; }
 
-    /* 모눈종이 그리드 영역 */
+    /* 모눈종이 그리드 */
     .tracker-section { margin-bottom: 18px; }
     .tracker-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
     .grid-container {
@@ -104,14 +106,13 @@
       border-radius: 6px;
       padding: 8px;
       display: inline-grid;
-      grid-template-columns: repeat(5, auto); /* 한 줄에 5만원 (큰 칸 5개) */
+      grid-template-columns: repeat(5, auto);
       gap: 6px;
       width: fit-content;
       max-width: 100%;
       overflow-x: auto;
     }
 
-    /* 큰 네모 (1만원) */
     .major-box {
       width: 58px;
       height: 44px;
@@ -125,14 +126,12 @@
       gap: 2px;
     }
 
-    /* 작은 네모 (1천원) */
     .sub-box {
       background: #fff;
       border: 0.5px dashed var(--sub-border);
       border-radius: 1px;
     }
 
-    /* 초과 영역 박스 */
     .over-container {
       margin-top: 8px;
       display: flex;
@@ -160,24 +159,25 @@
       <div class="legend-item"><div class="legend-dot" style="background:var(--c-grocery)"></div>식재료/장보기 (파랑 - 주간 10만)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--c-emergency)"></div>비상금 (핑크 - 별도 30만)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--c-eat-out)"></div>외식비 (주황)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-daily)"></div>생필품 (초록)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-cosmetic)"></div>화장품 (연보라)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--c-cloth)"></div>의류 (빨강)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--c-daiso)"></div>다이소(세빈) (보라)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-daiso)"></div>다이소(세빈) (남보라)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--c-traffic)"></div>교통비 (청록)</div>
       <div class="legend-item"><div class="legend-dot" style="background:var(--c-etc)"></div>기타 (갈색)</div>
       <div class="legend-item"><div class="legend-dot" style="background:#ef5350; border:1px solid #d32f2f;"></div>예산 초과금 (빨간색 칸)</div>
     </div>
   </div>
 
-  <!-- 지출 내역 입력 폼 및 동기화 버튼 -->
+  <!-- 지출 내역 입력 및 실시간 클라우드 동기화 -->
   <div class="card">
     <h3>지출 내역 기록</h3>
 
-    <!-- 기기간 데이터 동기화 백업 영역 -->
-    <div class="sync-box">
-      <div style="font-size:12px; color:#475569; font-weight:600;">📱 기기 간 데이터 동기화 (아이폰 ↔ 갤럭시)</div>
-      <div class="sync-btn-group">
-        <button type="button" class="btn-export" onclick="exportData()">내역 복사하기 (내보내기)</button>
-        <button type="button" class="btn-import" onclick="importData()">내역 붙여넣기 (가져오기)</button>
+    <div class="cloud-bar">
+      <div class="cloud-status" id="sync-status">☁️ 동기화 확인 중...</div>
+      <div class="cloud-btns">
+        <button type="button" class="cloud-btn" onclick="pullFromCloud()">🔄 새로고침</button>
+        <button type="button" class="cloud-btn primary" onclick="setupToken()">🔑 자동동기화 연결</button>
       </div>
     </div>
 
@@ -186,14 +186,16 @@
       <select id="in-cat">
         <option value="식재료">식재료 (장보기 주 10만)</option>
         <option value="외식비">외식비</option>
+        <option value="생필품">생필품</option>
+        <option value="화장품">화장품</option>
         <option value="의류">의류</option>
-        <option value="비상금">비상금 (별도 30만)</option>
         <option value="다이소(세빈)">다이소(세빈)</option>
         <option value="교통비">교통비</option>
+        <option value="비상금">비상금 (별도 30만)</option>
         <option value="기타">기타</option>
       </select>
       <input type="number" id="in-amount" placeholder="금액 (예: 3000)" step="1000">
-      <input type="text" id="in-desc" placeholder="내용 (예: 장보기, 카페 등)">
+      <input type="text" id="in-desc" placeholder="내용 (예: 마트, 올리브영 등)">
       <button type="button" id="btn-submit" onclick="addExpense()">추가하기</button>
       <button type="button" id="btn-cancel" onclick="cancelEdit()" style="display:none; background:#888;">수정 취소</button>
     </div>
@@ -213,19 +215,19 @@
     </table>
   </div>
 
-  <!-- 1. 주간 장보기 (식재료 전용 10만원 = 5칸 × 2줄) -->
+  <!-- 주간 장보기 (10만원 = 5칸 × 2줄) -->
   <div class="card">
     <h3>주간 장보기 구입 전용 모눈종이 (각 100,000원 = 5칸 × 2줄)</h3>
     <div id="grocery-weeks-container"></div>
   </div>
 
-  <!-- 2. 주간 생활비 소비 현황 (주차별 각 15만원 = 5칸 × 3줄) -->
+  <!-- 주간 생활비 (15만원 = 5칸 × 3줄) -->
   <div class="card">
     <h3>주간 생활비 모눈종이 (각 150,000원 = 5칸 × 3줄)</h3>
     <div id="general-weeks-container"></div>
   </div>
 
-  <!-- 3. 별도 예산 모눈종이 (비상금 30만원 = 5칸 × 6줄) -->
+  <!-- 비상금 (30만원 = 5칸 × 6줄) -->
   <div class="card">
     <h3>별도 예산 모눈종이</h3>
     <div class="tracker-section" style="margin-bottom:0;">
@@ -239,15 +241,26 @@
   </div>
 
   <script>
+    const GITHUB_OWNER = 'simyoungeun-creator';
+    const GITHUB_REPO = 'budget';
+    const DATA_FILE = 'data.json';
+
     const CAT_COLORS = {
       '식재료': '#1976d2',
-      '의류': '#f44336',
       '외식비': '#ff9800',
-      '비상금': '#e91e63',
-      '다이소(세빈)': '#9c27b0',
+      '생필품': '#4caf50',
+      '화장품': '#ab47bc',
+      '의류': '#f44336',
+      '다이소(세빈)': '#5c6bc0',
       '교통비': '#00bcd4',
+      '비상금': '#e91e63',
       '기타': '#795548'
     };
+
+    let expenses = JSON.parse(localStorage.getItem('my_notion_expenses_final') || '[]');
+    let editingId = null;
+    let ghToken = localStorage.getItem('gh_sync_token') || '';
+    let fileSha = null;
 
     function getWeekOfMonth(dateStr) {
       const d = new Date(dateStr);
@@ -255,51 +268,118 @@
       return Math.min(5, Math.ceil(day / 7));
     }
 
-    let expenses = JSON.parse(localStorage.getItem('my_notion_expenses_final') || '[]');
-    let editingId = null;
+    function updateStatus(msg, color = '#1976d2') {
+      const el = document.getElementById('sync-status');
+      if (el) {
+        el.innerText = msg;
+        el.style.color = color;
+      }
+    }
 
-    function saveAndRender() {
+    function setupToken() {
+      const input = prompt('발급받은 GitHub 암호코드(ghp_...)를 여기에 붙여넣어 주세요:', ghToken);
+      if (input !== null) {
+        ghToken = input.trim();
+        localStorage.setItem('gh_sync_token', ghToken);
+        if (ghToken) {
+          pullFromCloud(true);
+        } else {
+          updateStatus('⚠️ 동기화 미연결 (기기 단독 저장중)', '#e65100');
+        }
+      }
+    }
+
+    function utf8ToB64(str) {
+      return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode('0x' + p1)));
+    }
+    function b64ToUtf8(str) {
+      return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    }
+
+    async function pullFromCloud(mergeLocal = false) {
+      if (!ghToken) {
+        updateStatus('⚠️ [자동동기화 연결]을 눌러주세요', '#e65100');
+        return;
+      }
+      updateStatus('🔄 데이터 불러오는 중...', '#1976d2');
+
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}`, {
+          headers: {
+            'Authorization': `token ${ghToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+          },
+          cache: 'no-store'
+        });
+
+        if (res.status === 404) {
+          await pushToCloud();
+          return;
+        }
+
+        if (!res.ok) throw new Error('인증 오류');
+
+        const data = await res.json();
+        fileSha = data.sha;
+        const cloudExpenses = JSON.parse(b64ToUtf8(data.content.replace(/\n/g, '')));
+
+        if (mergeLocal && expenses.length > 0) {
+          const map = new Map();
+          cloudExpenses.forEach(item => map.set(item.id, item));
+          expenses.forEach(item => map.set(item.id, item));
+          expenses = Array.from(map.values()).sort((a, b) => a.id - b.id);
+          await pushToCloud();
+        } else {
+          expenses = cloudExpenses;
+          localStorage.setItem('my_notion_expenses_final', JSON.stringify(expenses));
+          renderTable();
+          renderAllGrids();
+          updateStatus('✅ 실시간 자동 동기화 켜짐', '#2e7d32');
+        }
+      } catch (err) {
+        updateStatus('❌ 연결 실패 (암호코드를 확인하세요)', '#d32f2f');
+      }
+    }
+
+    async function pushToCloud() {
       localStorage.setItem('my_notion_expenses_final', JSON.stringify(expenses));
       renderTable();
       renderAllGrids();
-    }
 
-    /* 데이터 내보내기 (클립보드 복사) */
-    function exportData() {
-      if (expenses.length === 0) {
-        alert('내보낼 지출 내역이 없습니다.');
-        return;
-      }
-      const dataStr = JSON.stringify(expenses);
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(dataStr).then(() => {
-          alert('기록 데이터가 복사되었습니다!\n다른 기기(카카오톡 등)로 보내서 붙여넣기 하세요.');
-        }).catch(() => {
-          prompt('아래 코드를 전체 복사하여 다른 기기로 보내세요:', dataStr);
-        });
-      } else {
-        prompt('아래 코드를 전체 복사하여 다른 기기로 보내세요:', dataStr);
-      }
-    }
-
-    /* 데이터 가져오기 (붙여넣기 반영) */
-    function importData() {
-      const inputStr = prompt('복사해 온 데이터를 여기에 붙여넣어 주세요:');
-      if (!inputStr) return;
+      if (!ghToken) return;
+      updateStatus('☁️ 자동 저장 중...', '#1976d2');
 
       try {
-        const parsed = JSON.parse(inputStr.trim());
-        if (Array.isArray(parsed)) {
-          if (confirm(`총 ${parsed.length}개의 내역을 불러옵니다. 기존 내역을 덮어쓸까요?`)) {
-            expenses = parsed;
-            saveAndRender();
-            alert('동기화가 완료되었습니다!');
-          }
-        } else {
-          alert('올바른 데이터 형식이 아닙니다.');
+        const getRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}`, {
+          headers: { 'Authorization': `token ${ghToken}` },
+          cache: 'no-store'
+        });
+        if (getRes.ok) {
+          const getJson = await getRes.json();
+          fileSha = getJson.sha;
         }
+
+        const bodyObj = {
+          message: 'Update budget data',
+          content: utf8ToB64(JSON.stringify(expenses))
+        };
+        if (fileSha) bodyObj.sha = fileSha;
+
+        const putRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `token ${ghToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(bodyObj)
+        });
+
+        if (!putRes.ok) throw new Error('저장 실패');
+        const putJson = await putRes.json();
+        fileSha = putJson.content.sha;
+        updateStatus('✅ 모든 기기 동기화 완료', '#2e7d32');
       } catch (err) {
-        alert('데이터를 파싱할 수 없습니다. 복사된 내용을 확인해 주세요.');
+        updateStatus('⚠️ 저장 실패 (새로고침 해보세요)', '#d32f2f');
       }
     }
 
@@ -328,7 +408,7 @@
         document.getElementById('in-desc').value = '';
       }
 
-      saveAndRender();
+      pushToCloud();
     }
 
     function editExpense(id) {
@@ -358,7 +438,7 @@
     function deleteExpense(id) {
       if (editingId === id) cancelEdit();
       expenses = expenses.filter(e => e.id !== id);
-      saveAndRender();
+      pushToCloud();
     }
 
     function renderTable() {
@@ -372,13 +452,13 @@
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${e.date}</td>
+          <td>${e.date.slice(5)}</td>
           <td>${typeBadge}</td>
-          <td><span style="color:${CAT_COLORS[e.cat]}; font-weight:bold;">●</span> ${e.cat}</td>
+          <td><span style="color:${CAT_COLORS[e.cat] || '#999'}; font-weight:bold;">●</span> ${e.cat}</td>
           <td>${e.amt.toLocaleString()}원</td>
           <td>${e.desc}</td>
           <td>
-            <button type="button" style="background:none; border:none; color:#1976d2; cursor:pointer; font-size:11px; margin-right:6px;" onclick="editExpense(${e.id})">수정</button>
+            <button type="button" style="background:none; border:none; color:#1976d2; cursor:pointer; font-size:12px; font-weight:bold; margin-right:6px;" onclick="editExpense(${e.id})">수정</button>
             <button type="button" class="del-btn" onclick="deleteExpense(${e.id})">✕</button>
           </td>
         `;
@@ -403,7 +483,6 @@
     }
 
     function initAllContainers() {
-      // 1. 주간 장보기 (10만원 = 큰 칸 10개)
       const groceryParent = document.getElementById('grocery-weeks-container');
       groceryParent.innerHTML = '';
       for (let w = 1; w <= 5; w++) {
@@ -421,7 +500,6 @@
         buildBoxes(`grid-grocery-week-${w}`, 10, `gw${w}`);
       }
 
-      // 2. 일반 주간 생활비 (15만원 = 큰 칸 15개)
       const generalParent = document.getElementById('general-weeks-container');
       generalParent.innerHTML = '';
       for (let w = 1; w <= 5; w++) {
@@ -439,7 +517,6 @@
         buildBoxes(`grid-general-week-${w}`, 15, `genw${w}`);
       }
 
-      // 3. 비상금 (30만원 = 큰 칸 30개)
       buildBoxes('grid-emergency', 30, 'emer');
     }
 
@@ -497,6 +574,7 @@
           emerTotal += e.amt;
 
         } else {
+          // 외식비, 생필품, 화장품, 의류, 다이소, 교통비, 기타 모두 주간 생활비(15만)에 색칠
           const startIdx = Math.floor(generalTotals[w] / 1000);
           for (let i = 0; i < boxesCount; i++) {
             const targetIdx = startIdx + i;
@@ -509,7 +587,6 @@
         }
       });
 
-      // 요약 글씨 및 초과 뱃지
       for (let w = 1; w <= 5; w++) {
         const gTotal = groceryTotals[w];
         const gOver = Math.max(0, gTotal - 100000);
@@ -575,11 +652,18 @@
       }
     }
 
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && ghToken) {
+        pullFromCloud();
+      }
+    });
+
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('in-date').value = new Date().toISOString().split('T')[0];
       initAllContainers();
       renderTable();
       renderAllGrids();
+      pullFromCloud();
     });
   </script>
 </body>
